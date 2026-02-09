@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conway's Game of Life - Editor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #0f172a; /* Slate 900 */
+            color: #e2e8f0; /* Slate 200 */
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none; /* Prevent text selection while drawing */
+        }
+        canvas {
+            image-rendering: pixelated;
+            cursor: crosshair;
+        }
+        .controls-container::-webkit-scrollbar {
+            height: 4px;
+        }
+        .controls-container::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        /* Custom Scrollbar for Modal */
+        .modal-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        .modal-content::-webkit-scrollbar-track {
+            background: #1e293b; 
+            border-radius: 4px;
+        }
+        .modal-content::-webkit-scrollbar-thumb {
+            background: #475569; 
+            border-radius: 4px;
+        }
+        .modal-content::-webkit-scrollbar-thumb:hover {
+            background: #64748b; 
+        }
+
+        /* Custom Select Styling */
+        select {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 0.5rem center;
+            background-repeat: no-repeat;
+            background-size: 1.5em 1.5em;
+            padding-right: 2.5rem;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        input[type=range] {
+            accent-color: #10b981;
+        }
+        
+        /* Summary marker styling */
+        details > summary {
+            list-style: none;
+        }
+        details > summary::-webkit-details-marker {
+            display: none;
+        }
+    </style>
+</head>
+<body class="h-screen w-full flex flex-col items-center justify-center relative">
+
+    <!-- Header / Info overlay -->
+    <div class="absolute top-4 left-4 z-10 pointer-events-none hidden md:block bg-slate-900/80 backdrop-blur-sm p-4 rounded-lg border border-slate-700/50 shadow-xl">
+        <h1 id="titleDisplay" class="text-2xl font-bold text-white drop-shadow-md tracking-wide">Conways Spiel des Lebens</h1>
+        <p class="text-sm text-slate-300 mt-1" id="toolDisplay">Modus: Stift (Klicken & Ziehen)</p>
+    </div>
+
+    <!-- Top Right Controls: Language & Help -->
+    <div class="absolute top-4 right-4 z-30 flex gap-2">
+        <!-- Help Button -->
+        <button id="btnInfo" class="w-8 h-8 rounded-full bg-slate-700 hover:bg-slate-600 text-white font-bold border border-slate-500 flex items-center justify-center shadow transition focus:outline-none" title="Info & Help">
+            ?
+        </button>
+
+        <!-- Language Switcher -->
+        <div class="flex rounded shadow overflow-hidden border border-slate-600 bg-slate-900/80 backdrop-blur-sm">
+            <button id="btnLangEN" class="px-3 py-1 text-xs font-bold transition focus:outline-none">EN</button>
+            <button id="btnLangDE" class="px-3 py-1 text-xs font-bold transition border-l border-slate-600 focus:outline-none">DE</button>
+        </div>
+    </div>
+
+    <!-- Info Modal Overlay -->
+    <div id="infoModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div class="bg-slate-800 text-slate-200 w-full max-w-2xl max-h-[90vh] rounded-xl shadow-2xl border border-slate-700 flex flex-col">
+            <!-- Modal Header -->
+            <div class="flex justify-between items-center p-6 border-b border-slate-700">
+                <h2 id="modalTitle" class="text-2xl font-bold text-emerald-400">Über das Spiel</h2>
+                <button id="btnCloseModal" class="text-slate-400 hover:text-white transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <!-- Modal Content (Scrollable) -->
+            <div id="modalContent" class="p-6 overflow-y-auto modal-content space-y-6 text-sm leading-relaxed">
+                <!-- Content injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Modal Overlay -->
+    <div id="importModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div class="bg-slate-800 text-slate-200 w-full max-w-lg rounded-xl shadow-2xl border border-slate-700 flex flex-col">
+            <div class="p-6 border-b border-slate-700">
+                <h2 id="importTitle" class="text-xl font-bold text-emerald-400">Muster Importieren</h2>
+                <p class="text-xs text-slate-400 mt-1">Unterstützt .cells (Plaintext) Format</p>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label id="lblImportURL" class="block text-xs uppercase text-slate-400 mb-1">URL (Optional)</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="inpImportURL" placeholder="https://..." class="flex-grow bg-slate-900 border border-slate-600 rounded px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none text-white">
+                        <button id="btnFetchURL" class="px-3 py-2 bg-slate-600 hover:bg-slate-500 rounded text-sm font-bold transition">Laden</button>
+                    </div>
+                    <p class="text-[10px] text-slate-500 mt-1">Hinweis: Manche Webseiten blockieren den direkten Download (CORS).</p>
+                </div>
+                <div>
+                    <label id="lblImportText" class="block text-xs uppercase text-slate-400 mb-1">Muster-Daten (Plaintext)</label>
+                    <textarea id="txtImportData" rows="6" class="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-xs font-mono focus:border-emerald-500 focus:outline-none text-emerald-400" placeholder="!Name: Glider&#10;.O.&#10;..O&#10;OOO"></textarea>
+                </div>
+                <div id="importError" class="text-xs text-red-400 hidden">Fehler beim Lesen des Musters.</div>
+            </div>
+            <div class="p-4 border-t border-slate-700 flex justify-end gap-2">
+                <button id="btnCloseImport" class="px-4 py-2 text-sm text-slate-400 hover:text-white transition">Abbrechen</button>
+                <button id="btnProcessImport" class="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded shadow text-sm font-bold transition">Importieren & Nutzen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Canvas Container -->
+    <div class="flex-grow w-full h-full relative bg-slate-900 shadow-inner flex items-center justify-center">
+        <canvas id="gridCanvas"></canvas>
+    </div>
+
+    <!-- Controls Bar -->
+    <div class="w-full bg-slate-800 border-t border-slate-700 p-4 flex flex-wrap gap-4 items-center justify-center shadow-lg z-20 controls-container">
+        
+        <!-- Playback Controls -->
+        <div class="flex gap-2 items-center">
+            <button id="btnStartStop" class="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded shadow transition font-bold min-w-[90px]">
+                Start
+            </button>
+            <button id="btnStep" class="px-4 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded shadow transition" title="Einzelschritt">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+        </div>
+
+        <div class="h-8 w-px bg-slate-600 hidden sm:block"></div>
+
+        <!-- Tool / Pattern Selector -->
+        <div class="flex flex-col justify-center">
+            <label id="lblTool" class="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Werkzeug</label>
+            <div class="relative">
+                <select id="patternSelect" class="w-48 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white border border-slate-600 rounded shadow transition cursor-pointer focus:outline-none focus:border-emerald-500 text-sm">
+                    <!-- Options populated by JS now -->
+                </select>
+            </div>
+        </div>
+
+        <div class="h-8 w-px bg-slate-600 hidden sm:block"></div>
+
+        <!-- Grid Settings -->
+        <div class="flex gap-4">
+            <div class="flex flex-col items-center justify-center w-32">
+                <div class="flex justify-between w-full mb-1">
+                    <label id="lblZoom" for="zoomRange" class="text-[10px] text-slate-400 uppercase tracking-wider">Zellgröße</label>
+                    <span id="valZoom" class="text-[10px] text-emerald-400 font-mono"></span>
+                </div>
+                <input type="range" id="zoomRange" min="1" max="50" value="20" class="w-full h-1.5 bg-slate-600 rounded-lg appearance-none cursor-pointer">
+            </div>
+            
+            <div class="flex flex-col items-center justify-center w-32">
+                <div class="flex justify-between w-full mb-1">
+                    <label id="lblSpeed" for="speedRange" class="text-[10px] text-slate-400 uppercase tracking-wider">Tempo</label>
+                    <span id="valSpeed" class="text-[10px] text-indigo-400 font-mono"></span>
+                </div>
+                <input type="range" id="speedRange" min="10" max="200" value="50" class="w-full h-1.5 bg-slate-600 rounded-lg appearance-none cursor-pointer">
+            </div>
+        </div>
+
+        <div class="h-8 w-px bg-slate-600 hidden sm:block"></div>
+
+        <!-- Scenario / Actions -->
+        <div class="flex flex-col justify-center">
+             <label id="lblScenario" class="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Szenarien</label>
+             <div class="flex gap-2">
+                <select id="scenarioSelect" class="px-3 py-2 bg-indigo-700 hover:bg-indigo-600 text-white border border-indigo-600 rounded shadow transition cursor-pointer focus:outline-none focus:border-indigo-400 text-sm">
+                    <!-- Populated by JS -->
+                </select>
+                <!-- Import Button -->
+                <button id="btnOpenImport" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white border border-slate-600 rounded shadow transition text-sm" title="Import Pattern">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </button>
+                <button id="btnClear" class="px-3 py-2 bg-red-900/50 hover:bg-red-800 text-red-200 border border-red-800 rounded shadow transition text-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="hidden lg:flex flex-col items-end justify-center ml-2 min-w-[100px]">
+             <div class="text-xs text-slate-400"><span id="lblGen">Generation:</span> <span id="genCount" class="text-emerald-400 font-mono">0</span></div>
+             <div class="text-xs text-slate-400"><span id="lblPop">Population:</span> <span id="liveCount" class="text-indigo-400 font-mono">0</span></div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gridCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // --- Configuration & State ---
+        let resolution = 20; 
+        let rows, cols;
+        let grid;
+        let animationId = null;
+        let isRunning = false;
+        let speed = 50; 
+        let lastFrameTime = 0;
+        let generation = 0;
+        
+        let isDrawing = false;
+        let drawMode = 1; 
+        let currentTool = 'free'; 
+        let currentLang = 'en';
+
+        // Colors
+        const COLOR_BG = '#0f172a';
+        const COLOR_CELL = '#10b981'; 
+        const COLOR_GRID = '#1e293b';
+
+        // DOM Elements
+        const btnStartStop = document.getElementById('btnStartStop');
+        const btnStep = document.getElementById('btnStep');
+        const btnClear = document.getElementById('btnClear');
+        const patternSelect = document.getElementById('patternSelect');
+        const scenarioSelect = document.getElementById('scenarioSelect');
+        const speedRange = document.getElementById('speedRange');
+        const zoomRange = document.getElementById('zoomRange');
+        const genDisplay = document.getElementById('genCount');
+        const liveDisplay = document.getElementById('liveCount');
+        const toolDisplay = document.getElementById('toolDisplay');
+        const titleDisplay = document.getElementById('titleDisplay');
+        const btnLangDE = document.getElementById('btnLangDE');
+        const btnLangEN = document.getElementById('btnLangEN');
+        
+        // Modal Help
+        const btnInfo = document.getElementById('btnInfo');
+        const infoModal = document.getElementById('infoModal');
+        const btnCloseModal = document.getElementById('btnCloseModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalContent = document.getElementById('modalContent');
+
+        // Modal Import
+        const btnOpenImport = document.getElementById('btnOpenImport');
+        const importModal = document.getElementById('importModal');
+        const btnCloseImport = document.getElementById('btnCloseImport');
+        const btnProcessImport = document.getElementById('btnProcessImport');
+        const btnFetchURL = document.getElementById('btnFetchURL');
+        const inpImportURL = document.getElementById('inpImportURL');
+        const txtImportData = document.getElementById('txtImportData');
+        const lblImportTitle = document.getElementById('importTitle');
+        const importError = document.getElementById('importError');
+        
+        // Labels
+        const lblTool = document.getElementById('lblTool');
+        const lblZoom = document.getElementById('lblZoom');
+        const lblSpeed = document.getElementById('lblSpeed');
+        const lblGen = document.getElementById('lblGen');
+        const lblPop = document.getElementById('lblPop');
+        const lblScenario = document.getElementById('lblScenario');
+        
+        const valZoom = document.getElementById('valZoom');
+        const valSpeed = document.getElementById('valSpeed');
+
+        // --- Data Definitions ---
+
+        const patterns = {
+            block: [[0,0], [1,0], [0,1], [1,1]],
+            beehive: [[1,0], [2,0], [0,1], [3,1], [1,2], [2,2]],
+            loaf: [[1,0], [2,0], [0,1], [3,1], [1,2], [3,2], [2,3]],
+            boat: [[0,0], [1,0], [0,1], [2,1], [1,2]],
+            tub: [[1,0], [0,1], [2,1], [1,2]],
+            blinker: [[0,0], [1,0], [2,0]],
+            toad: [[1,0], [2,0], [3,0], [0,1], [1,1], [2,1]],
+            beacon: [[0,0], [1,0], [0,1], [3,2], [2,3], [3,3]],
+            pulsar: [[2,0],[3,0],[4,0],[8,0],[9,0],[10,0],[0,2],[5,2],[7,2],[12,2], [0,3],[5,3],[7,3],[12,3], [0,4],[5,4],[7,4],[12,4],[2,5],[3,5],[4,5],[8,5],[9,5],[10,5], [2,7],[3,7],[4,7],[8,7],[9,7],[10,7],[0,8],[5,8],[7,8],[12,8], [0,9],[5,9],[7,9],[12,9], [0,10],[5,10],[7,10],[12,10],[2,12],[3,12],[4,12],[8,12],[9,12],[10,12]],
+            pentadecathlon: [[2,0], [7,0], [0,1], [1,1], [3,1], [4,1], [5,1], [6,1], [8,1], [9,1], [2,2], [7,2]],
+            glider: [[1,0], [2,1], [0,2], [1,2], [2,2]],
+            lwss: [[1,0], [4,0], [0,1], [0,2], [4,2], [0,3], [1,3], [2,3], [3,3]],
+            mwss: [[3,0], [4,0], [2,1], [5,1], [1,2], [5,2], [0,3], [4,3], [2,4], [0,4]], 
+            hwss: [[1,0], [2,0], [3,0], [4,0], [5,0], [0,1], [5,1], [5,2], [0,3], [4,3], [2,4]],
+            gosper: [[24,0], [22,1], [24,1], [12,2], [13,2], [20,2], [21,2], [34,2], [35,2], [11,3], [15,3], [20,3], [21,3], [34,3], [35,3], [0,4], [1,4], [10,4], [16,4], [20,4], [21,4], [0,5], [1,5], [10,5], [14,5], [16,5], [17,5], [22,5], [24,5], [10,6], [16,6], [24,6], [11,7], [15,7], [12,8], [13,8]],
+            bi_gun: [[24,0], [22,1], [24,1], [12,2], [13,2], [20,2], [21,2], [34,2], [35,2], [11,3], [15,3], [20,3], [21,3], [34,3], [35,3], [0,4], [1,4], [10,4], [16,4], [20,4], [21,4], [0,5], [1,5], [10,5], [14,5], [16,5], [17,5], [22,5], [24,5], [10,6], [16,6], [24,6], [11,7], [15,7], [12,8], [13,8],[24,20], [22,21], [24,21], [12,22], [13,22], [20,22], [21,22], [34,22], [35,22], [11,23], [15,23], [20,23], [21,23], [34,23], [35,23], [0,24], [1,24], [10,24], [16,24], [20,24], [21,24], [0,25], [1,25], [10,25], [14,25], [16,25], [17,25], [22,25], [24,25], [10,26], [16,26], [24,26], [11,27], [15,27], [12,28], [13,28]],
+            r_pentomino: [[1,0], [2,0], [0,1], [1,1], [1,2]],
+            diehard: [[6,0], [0,1], [1,1], [1,2], [5,2], [6,2], [7,2]],
+            acorn: [[1,0], [3,1], [0,2], [1,2], [4,2], [5,2], [6,2]],
+            rabbit: [[0,0], [4,0], [5,0], [6,0], [0,1], [1,1], [2,1], [5,1], [1,2], [4,2]],
+            copperhead: [[1,0], [2,0], [5,0], [6,0], [3,1], [4,1], [3,2], [4,2], [0,3], [2,3], [3,3], [4,3], [5,3], [7,3], [0,4], [7,4], [2,6], [5,6], [2,7], [5,7], [3,8], [4,8], [3,9], [4,9]],
+            ark: [[1,0], [2,0], [4,0], [0,1], [3,1], [3,2], [0,3], [2,3], [0,4]],
+            coe_ship: [[6,0], [7,0], [4,1], [5,1], [6,1], [7,1], [4,2], [6,2], [4,3], [4,4], [5,4], [0,10], [1,10], [3,10], [4,10], [0,11], [3,11], [0,12], [1,12], [2,12]],
+            puffer_1: [[1,0], [2,0], [3,0], [0,1], [3,1], [3,2], [3,3], [0,3], [10,8], [11,8], [12,8], [13,8], [14,8], [10,9], [14,9], [14,10], [10,11], [13,11], [12,12]],
+            tumbler: [[1,0],[2,0],[4,0],[5,0], [1,1],[2,1],[4,1],[5,1], [2,2],[4,2], [0,3],[2,3],[4,3],[6,3], [0,4],[2,4],[4,4],[6,4], [0,5],[1,5],[5,5],[6,5]],
+            f_pentomino: [[1,0],[2,0],[0,1],[1,1],[1,2]],
+            small_exploder: [[1,0],[0,1],[1,1],[2,1],[0,2],[2,2],[1,3]],
+            queen_bee_shuttle: [[0,0],[1,0],[0,1],[2,1],[2,2],[1,3],[2,3],[0,4],[1,4], [9,0],[9,1],[9,2],[9,3],[9,4]],
+            clock: [[2,1],[3,1],[0,2],[2,2],[1,3],[3,3],[0,4],[1,4]],
+            figure_eight: [[0,0],[1,0],[0,1],[1,1], [2,1],[2,2],[3,2],[3,3], [4,3],[4,4],[5,4],[5,5]],
+            spark_coil: [[0,0],[1,0],[0,1],[1,1], [2,2],[3,2], [4,0],[5,0],[4,1],[5,1], [2,-1],[3,-1]],
+            octagon_2: [[3,0],[4,0], [2,1],[5,1], [1,2],[6,2], [0,3],[7,3], [0,4],[7,4], [1,5],[6,5], [2,6],[5,6], [3,7],[4,7]],
+            swan: [[0,0],[1,0],[2,0],[1,1],[2,1],[2,2]],
+            turtle: [[0,0],[1,0],[0,1],[1,1], [2,2],[2,3],[3,2]],
+            
+            // Custom Slot
+            custom: [] 
+        };
+        
+        // --- Translations ---
+
+        const translations = {
+            de: {
+                title: "Conways Spiel des Lebens",
+                toolStart: "Modus: Stift (Klicken & Ziehen)",
+                toolPattern: "Modus: {pattern} setzen",
+                btnStart: "Start",
+                btnStop: "Stopp",
+                btnStepTitle: "Einzelschritt",
+                btnClear: "Leeren",
+                lblTool: "Werkzeug",
+                lblZoom: "Zellgröße",
+                lblSpeed: "Tempo",
+                lblScenario: "Szenarien / Reset",
+                lblGen: "Generation:",
+                lblPop: "Population:",
+                valGrid: "{c}x{r}",
+                valSpeed: "{n} Gen/s",
+                modalTitle: "Über das Spiel",
+                importTitle: "Muster Importieren",
+                txtExpand: "Alle zeigen",
+                txtCollapse: "Alle verbergen",
+                scenarios: {
+                    default: "Szenario wählen...",
+                    random: "🎲 Ursuppe (Zufall)",
+                    party: "✨ Party (Blinken)",
+                    traffic: "🚀 Verkehr (Wandern)",
+                    war: "⚔️ Krieg (Guns)",
+                    exotic: "👽 Exotisch (Raritäten)",
+                    lexicon: "📚 Lexikon (Best of)"
+                },
+                infoIntro: `
+                    <div class="space-y-6">
+                        <section>
+                            <h3 class="text-lg font-bold text-white mb-2">Historie & Credits</h3>
+                            <p class="text-slate-300 mb-2">
+                                Das <strong>Game of Life</strong> (Spiel des Lebens) wurde 1970 vom britischen Mathematiker 
+                                <span class="text-emerald-400">John Horton Conway</span> entworfen.
+                            </p>
+                            <div class="text-slate-400 text-xs italic border-l-2 border-slate-600 pl-3 space-y-1">
+                                <p>Muster aus dem <a href="https://playgameoflife.com/lexicon" target="_blank" class="text-indigo-400 hover:underline">Life Lexicon</a> (Stephen Silver).</p>
+                                <p>Code inspiriert von <a href="https://github.com/toughIQ/game-of-life" target="_blank" class="text-indigo-400 hover:underline">toughIQ/game-of-life</a>.</p>
+                            </div>
+                        </section>
+                        <section>
+                            <h3 class="text-lg font-bold text-white mb-2">Bedienung</h3>
+                            <ul class="list-disc list-inside text-slate-300 space-y-1">
+                                <li><strong>Zeichnen:</strong> Wähle den <em>Stift</em> und klicke/ziehe über das Feld.</li>
+                                <li><strong>Muster:</strong> Wähle ein Muster aus dem Menü und klicke ins Feld.</li>
+                                <li><strong>Import:</strong> Nutze den <svg xmlns="http://www.w3.org/2000/svg" class="inline w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Button, um eigene Muster (.cells) per URL oder Text zu laden.</li>
+                                <li><strong>Zoom:</strong> Ändere die Zellgröße von grob bis zu 1 Pixel.</li>
+                            </ul>
+                        </section>
+                        <section>
+                            <div class="flex justify-between items-end mb-4 border-b border-slate-700 pb-2">
+                                <h3 class="text-lg font-bold text-white">Muster-Bibliothek</h3>
+                                <button id="btnTogglePatterns" class="text-xs text-emerald-400 hover:text-emerald-300 font-bold uppercase tracking-wider focus:outline-none">
+                                    Alle zeigen
+                                </button>
+                            </div>
+                            <div id="patternLibraryContainer" class="space-y-2">
+                                <!-- Generated by JS -->
+                            </div>
+                        </section>
+                    </div>
+                `,
+                tools: {
+                    free: "✏️ Stift (Freihand)",
+                    custom: "⚡ Benutzerdefiniert",
+                    block: "Block",
+                    beehive: "Bienenstock",
+                    loaf: "Laib",
+                    boat: "Boot",
+                    tub: "Wanne",
+                    blinker: "Blinker",
+                    toad: "Kröte",
+                    beacon: "Leuchtfeuer",
+                    pulsar: "Pulsar (Groß)",
+                    pentadecathlon: "Pentadecathlon",
+                    glider: "Gleiter",
+                    lwss: "Leichtes Raumschiff",
+                    mwss: "Mittel Raumschiff",
+                    hwss: "Schweres Raumschiff",
+                    gosper: "Gosper Kanone",
+                    bi_gun: "Bi-Gun (Doppel)",
+                    r_pentomino: "R-Pentomino",
+                    diehard: "Diehard",
+                    acorn: "Acorn",
+                    rabbit: "Der Hase",
+                    puffer_1: "Dampflok",
+                    ark: "Die Arche",
+                    copperhead: "Copperhead",
+                    coe_ship: "Coe Ship",
+                    tumbler: "Tumbler",
+                    f_pentomino: "F-Pentomino",
+                    small_exploder: "Small Exploder",
+                    queen_bee_shuttle: "Queen Bee",
+                    clock: "Uhr (Clock)",
+                    figure_eight: "Achterbahn (Figure 8)",
+                    spark_coil: "Funkenspule",
+                    octagon_2: "Oktagon 2",
+                    swan: "Schwan",
+                    turtle: "Schildkröte"
+                },
+                groups: {
+                    custom: "Eigene Importe",
+                    still: "Stillleben (Statisch)",
+                    oscillator: "Oszillatoren (Blinkend)",
+                    spaceship: "Raumschiffe (Beweglich)",
+                    methuselah: "Methusalems (Chaos)",
+                    guns: "Kanonen (Guns)",
+                    exotic: "Exotisch & Komplex",
+                    lexicon: "Lexikon-Favoriten"
+                },
+                patternDetails: {
+                    custom: "Ein über den Import-Dialog geladenes Muster.",
+                    block: "Das einfachste Stillleben.",
+                    beehive: "Ein häufiges Stillleben mit 6 Zellen.",
+                    loaf: "Ein 7-Zellen Stillleben.",
+                    boat: "Ein 5-Zellen Stillleben.",
+                    tub: "Ein 4-Zellen Stillleben.",
+                    blinker: "Der kleinste Oszillator (Periode 2).",
+                    toad: "Oszillator Periode 2. Bläht sich auf.",
+                    beacon: "Zwei Blöcke, die sich fast berühren.",
+                    pulsar: "Riesiger, sternförmiger Oszillator (Periode 3).",
+                    pentadecathlon: "Länglicher Oszillator mit Periode 15.",
+                    glider: "Das berühmteste Muster. Wandert diagonal.",
+                    lwss: "Wandert horizontal (Leicht).",
+                    mwss: "Wandert horizontal (Mittel).",
+                    hwss: "Wandert horizontal (Schwer).",
+                    gosper: "Produziert unendlich viele Gleiter.",
+                    bi_gun: "Zwei Kanonen, die sich gegenüberstehen.",
+                    r_pentomino: "Erzeugt langes Chaos.",
+                    diehard: "Verschwindet nach langer Zeit.",
+                    acorn: "Wächst extrem stark an.",
+                    rabbit: "Winziges Startmuster, das erst nach 17.331 Generationen zur Ruhe kommt!",
+                    puffer_1: "Ein Raumschiff, das wandert und dabei Trümmer hinterlässt (Rauchspur).",
+                    ark: "Ein 'Switch Engine', der diagonal wandert und unendlich viele Blöcke baut.",
+                    copperhead: "Ein 2016 entdecktes Raumschiff, das sich sehr anmutig bewegt.",
+                    coe_ship: "Ein weiteres kompaktes Raumschiff.",
+                    tumbler: "Ein Oszillator, der sich scheinbar überschlägt.",
+                    f_pentomino: "Ein Verwandter des R-Pentomino mit langer Lebensdauer.",
+                    small_exploder: "Ein Muster, das sich symmetrisch aufbläht.",
+                    queen_bee_shuttle: "Ein Shuttle, das oft in Guns verwendet wird.",
+                    clock: "Oszillator Periode 2.",
+                    figure_eight: "Oszillator Periode 8.",
+                    spark_coil: "Oszillator Periode 2.",
+                    octagon_2: "Oszillator Periode 5.",
+                    swan: "Dreht sich um.",
+                    turtle: "c/3 Raumschiff."
+                }
+            },
+            en: {
+                title: "Conway's Game of Life",
+                toolStart: "Mode: Pencil (Click & Drag)",
+                toolPattern: "Mode: Place {pattern}",
+                btnStart: "Start",
+                btnStop: "Stop",
+                btnStepTitle: "Single Step",
+                btnClear: "Clear",
+                lblTool: "Tool",
+                lblZoom: "Cell Size",
+                lblSpeed: "Speed",
+                lblScenario: "Scenarios / Reset",
+                lblGen: "Generation:",
+                lblPop: "Population:",
+                valGrid: "{c}x{r}",
+                valSpeed: "{n} Gen/s",
+                modalTitle: "About the Game",
+                importTitle: "Import Pattern",
+                txtExpand: "Expand All",
+                txtCollapse: "Collapse All",
+                scenarios: {
+                    default: "Select Scenario...",
+                    random: "🎲 Primordial Soup",
+                    party: "✨ Party (Blinking)",
+                    traffic: "🚀 Traffic (Moving)",
+                    war: "⚔️ War (Guns)",
+                    exotic: "👽 Exotic (Rarities)",
+                    lexicon: "📚 Lexicon (Best of)"
+                },
+                infoIntro: `
+                    <div class="space-y-6">
+                        <section>
+                            <h3 class="text-lg font-bold text-white mb-2">History & Credits</h3>
+                            <p class="text-slate-300 mb-2">
+                                The <strong>Game of Life</strong> was devised by British mathematician 
+                                <span class="text-emerald-400">John Horton Conway</span> in 1970.
+                            </p>
+                            <div class="text-slate-400 text-xs italic border-l-2 border-slate-600 pl-3 space-y-1">
+                                <p>Patterns sourced from <a href="https://playgameoflife.com/lexicon" target="_blank" class="text-indigo-400 hover:underline">Life Lexicon</a> (Stephen Silver).</p>
+                                <p>Code inspired by <a href="https://github.com/toughIQ/game-of-life" target="_blank" class="text-indigo-400 hover:underline">toughIQ/game-of-life</a>.</p>
+                            </div>
+                        </section>
+                        <section>
+                            <h3 class="text-lg font-bold text-white mb-2">How to Use</h3>
+                            <ul class="list-disc list-inside text-slate-300 space-y-1">
+                                <li><strong>Drawing:</strong> Select the <em>Pencil</em> tool and click/drag on the grid.</li>
+                                <li><strong>Patterns:</strong> Choose a pattern from the menu and click on the grid to stamp it.</li>
+                                <li><strong>Import:</strong> Use the <svg xmlns="http://www.w3.org/2000/svg" class="inline w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> button to load custom patterns (.cells) via URL or Text.</li>
+                                <li><strong>Zoom:</strong> Adjust cell size from coarse down to 1 pixel.</li>
+                            </ul>
+                        </section>
+                        <section>
+                            <div class="flex justify-between items-end mb-4 border-b border-slate-700 pb-2">
+                                <h3 class="text-lg font-bold text-white">Pattern Library</h3>
+                                <button id="btnTogglePatterns" class="text-xs text-emerald-400 hover:text-emerald-300 font-bold uppercase tracking-wider focus:outline-none">
+                                    Expand All
+                                </button>
+                            </div>
+                            <div id="patternLibraryContainer" class="space-y-2">
+                                <!-- Generated by JS -->
+                            </div>
+                        </section>
+                    </div>
+                `,
+                tools: {
+                    free: "✏️ Pencil (Freehand)",
+                    custom: "⚡ Custom Import",
+                    block: "Block",
+                    beehive: "Beehive",
+                    loaf: "Loaf",
+                    boat: "Boat",
+                    tub: "Tub",
+                    blinker: "Blinker",
+                    toad: "Toad",
+                    beacon: "Beacon",
+                    pulsar: "Pulsar (Large)",
+                    pentadecathlon: "Pentadecathlon",
+                    glider: "Glider",
+                    lwss: "LWSS (Light)",
+                    mwss: "MWSS (Medium)",
+                    hwss: "HWSS (Heavy)",
+                    gosper: "Gosper Gun",
+                    bi_gun: "Bi-Gun (Double)",
+                    r_pentomino: "R-Pentomino",
+                    diehard: "Diehard",
+                    acorn: "Acorn",
+                    rabbit: "The Rabbit",
+                    puffer_1: "Puffer 1",
+                    ark: "The Ark",
+                    copperhead: "Copperhead",
+                    coe_ship: "Coe Ship",
+                    tumbler: "Tumbler",
+                    f_pentomino: "F-Pentomino",
+                    small_exploder: "Small Exploder",
+                    queen_bee_shuttle: "Queen Bee",
+                    clock: "Clock",
+                    figure_eight: "Figure Eight",
+                    spark_coil: "Spark Coil",
+                    octagon_2: "Octagon 2",
+                    swan: "Swan",
+                    turtle: "Turtle"
+                },
+                groups: {
+                    custom: "Custom Import",
+                    still: "Still Lifes (Static)",
+                    oscillator: "Oscillators (Blinking)",
+                    spaceship: "Spaceships (Moving)",
+                    methuselah: "Methuselahs (Chaos)",
+                    guns: "Guns",
+                    exotic: "Exotic & Complex",
+                    lexicon: "Lexicon Highlights"
+                },
+                patternDetails: {
+                    custom: "A pattern loaded via the import dialog.",
+                    block: "The simplest still life.",
+                    beehive: "Common 6-cell still life.",
+                    loaf: "7-cell still life.",
+                    boat: "5-cell still life.",
+                    tub: "4-cell still life.",
+                    blinker: "Smallest oscillator (Period 2).",
+                    toad: "Period 2 oscillator.",
+                    beacon: "Two blocks interacting.",
+                    pulsar: "Huge star-like oscillator (Period 3).",
+                    pentadecathlon: "Long oscillator with period 15.",
+                    glider: "Travels diagonally.",
+                    lwss: "Travels horizontally (Light).",
+                    mwss: "Travels horizontally (Medium).",
+                    hwss: "Travels horizontally (Heavy).",
+                    gosper: "Produces infinite gliders.",
+                    bi_gun: "Two guns facing each other.",
+                    r_pentomino: "Creates chaos for a long time.",
+                    diehard: "Vanishes after a long time.",
+                    acorn: "Grows massively before stabilizing.",
+                    rabbit: "Tiny pattern that takes 17,331 generations to stabilize!",
+                    puffer_1: "A spaceship that moves and leaves debris behind (smoke).",
+                    ark: "A 'Switch Engine' that travels diagonally leaving a trail of blocks.",
+                    copperhead: "A spaceship discovered in 2016. Moves gracefully.",
+                    coe_ship: "Another compact spaceship.",
+                    tumbler: "An oscillator that tumbles over itself.",
+                    f_pentomino: "A methuselah relative of R-pentomino.",
+                    small_exploder: "Expands symmetrically.",
+                    queen_bee_shuttle: "A shuttle often used in guns.",
+                    clock: "Period 2 oscillator.",
+                    figure_eight: "Period 8 oscillator.",
+                    spark_coil: "Period 2 oscillator.",
+                    octagon_2: "Period 5 oscillator.",
+                    swan: "Flips over.",
+                    turtle: "c/3 spaceship."
+                }
+            }
+        };
+
+        // --- Logic ---
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            const t = translations[lang];
+
+            titleDisplay.textContent = t.title;
+            btnClear.title = t.btnClear; 
+            btnStep.title = t.btnStepTitle;
+            lblTool.textContent = t.lblTool;
+            lblZoom.textContent = t.lblZoom;
+            lblSpeed.textContent = t.lblSpeed;
+            lblScenario.textContent = t.lblScenario;
+            lblGen.textContent = t.lblGen;
+            lblPop.textContent = t.lblPop;
+            
+            // Modals
+            modalTitle.textContent = t.modalTitle;
+            modalContent.innerHTML = t.infoIntro;
+            lblImportTitle.textContent = t.importTitle;
+            
+            renderPatternLibrary();
+            attachToggleListener();
+            
+            if (isRunning) btnStartStop.textContent = t.btnStop;
+            else btnStartStop.textContent = t.btnStart;
+
+            updateToolDisplay();
+            renderPatternSelect();
+            renderScenarioSelect(); 
+            updateLanguageButtons();
+            updateUIValues();
+        }
+
+        // --- Import Logic ---
+        
+        function openImportModal() {
+            importModal.classList.remove('hidden');
+            importError.classList.add('hidden');
+            txtImportData.value = '';
+            inpImportURL.value = '';
+        }
+
+        function closeImportModal() {
+            importModal.classList.add('hidden');
+        }
+
+        async function fetchPatternFromURL() {
+            const url = inpImportURL.value.trim();
+            if(!url) return;
+            
+            importError.classList.add('hidden');
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Network response was not ok');
+                const text = await response.text();
+                txtImportData.value = text;
+            } catch (error) {
+                console.error("Fetch failed", error);
+                importError.textContent = "Fehler: Konnte URL nicht laden (CORS/Netzwerk). Bitte Text manuell einfügen.";
+                importError.classList.remove('hidden');
+            }
+        }
+
+        function parseCellsFormat(text) {
+            const lines = text.split('\n');
+            const coords = [];
+            let y = 0;
+            let valid = false;
+            
+            lines.forEach(line => {
+                line = line.trim();
+                // Ignore empty lines or comments
+                if (!line || line.startsWith('!')) return;
+                
+                let currentX = 0;
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+                    if (char === 'O' || char === '*') {
+                        coords.push([currentX, y]);
+                        valid = true;
+                    }
+                    // Both . and O increment x position in .cells format
+                    currentX++;
+                }
+                y++;
+            });
+            return valid ? coords : null;
+        }
+
+        function processImport() {
+            const text = txtImportData.value;
+            const coords = parseCellsFormat(text);
+            
+            if (coords && coords.length > 0) {
+                patterns.custom = coords;
+                currentTool = 'custom';
+                
+                // Re-render select to include custom group if not there or just update selection
+                renderPatternSelect();
+                patternSelect.value = 'custom';
+                
+                updateToolDisplay();
+                canvas.style.cursor = "copy";
+                closeImportModal();
+            } else {
+                importError.textContent = "Ungültiges Format oder leere Daten.";
+                importError.classList.remove('hidden');
+            }
+        }
+
+        // --- Render Functions (Updated) ---
+
+        function renderPatternSelect() {
+            const t = translations[currentLang];
+            const currentVal = patternSelect.value || 'free'; 
+            patternSelect.innerHTML = ''; 
+
+            const optFree = document.createElement('option');
+            optFree.value = 'free';
+            optFree.textContent = t.tools.free;
+            patternSelect.appendChild(optFree);
+
+            const createGroup = (label, keys) => {
+                const group = document.createElement('optgroup');
+                group.label = label;
+                keys.forEach(key => {
+                    const opt = document.createElement('option');
+                    opt.value = key;
+                    opt.textContent = t.tools[key] || key;
+                    group.appendChild(opt);
+                });
+                patternSelect.appendChild(group);
+            };
+            
+            // Add Custom Group if data exists
+            if (patterns.custom && patterns.custom.length > 0) {
+                createGroup(t.groups.custom, ['custom']);
+            }
+
+            createGroup(t.groups.still, ['block', 'beehive', 'loaf', 'boat', 'tub']);
+            createGroup(t.groups.oscillator, ['blinker', 'toad', 'beacon', 'pulsar', 'pentadecathlon']);
+            createGroup(t.groups.spaceship, ['glider', 'lwss', 'mwss', 'hwss']);
+            createGroup(t.groups.guns, ['gosper', 'bi_gun']);
+            createGroup(t.groups.methuselah, ['r_pentomino', 'diehard', 'acorn']);
+            createGroup(t.groups.exotic, ['rabbit', 'puffer_1', 'ark', 'copperhead', 'coe_ship']);
+            createGroup(t.groups.lexicon, ['tumbler', 'f_pentomino', 'small_exploder', 'queen_bee_shuttle', 'clock', 'figure_eight', 'spark_coil', 'octagon_2', 'swan', 'turtle']);
+
+            // Restore selection if possible, otherwise default to free
+            if (currentVal === 'custom' && (!patterns.custom || patterns.custom.length === 0)) {
+                patternSelect.value = 'free';
+            } else {
+                patternSelect.value = currentVal;
+            }
+        }
+
+        // --- Standard Engine & Event Listeners (Merged) ---
+        
+        // ... (Previous logic for init, renderScenario, etc) ...
+        function renderScenarioSelect() {
+            const t = translations[currentLang];
+            scenarioSelect.innerHTML = '';
+            
+            const defOpt = document.createElement('option');
+            defOpt.text = t.scenarios.default;
+            defOpt.value = "";
+            defOpt.disabled = true;
+            defOpt.selected = true;
+            scenarioSelect.appendChild(defOpt);
+
+            const opts = ['random', 'party', 'traffic', 'war', 'exotic', 'lexicon'];
+            opts.forEach(k => {
+                const opt = document.createElement('option');
+                opt.value = k;
+                opt.text = t.scenarios[k];
+                scenarioSelect.appendChild(opt);
+            });
+        }
+        
+        function applyScenario(type) {
+            stopGame();
+            grid = buildGrid();
+            generation = 0;
+            const cx = Math.floor(cols/2);
+            const cy = Math.floor(rows/2);
+
+            if (type === 'random') randomizeGrid();
+            else if (type === 'party') {
+                const choices = ['blinker', 'toad', 'beacon', 'pulsar', 'pentadecathlon'];
+                placeRandomSet(choices, Math.floor((cols * rows) / 200));
+            } else if (type === 'traffic') {
+                const choices = ['glider', 'lwss', 'mwss', 'hwss'];
+                placeRandomSet(choices, Math.floor((cols * rows) / 150));
+            } else if (type === 'war') {
+                placePatternNoDraw('gosper', 10, 10);
+                if(cols > 50 && rows > 50) {
+                     placePatternNoDraw('gosper', cols - 40, rows - 30);
+                     placePatternNoDraw('bi_gun', Math.floor(cols/2) - 10, Math.floor(rows/2) - 10);
+                } else placePatternNoDraw('bi_gun', 2, 2);
+            } else if (type === 'exotic') {
+                const choices = ['rabbit', 'puffer_1', 'ark', 'copperhead', 'coe_ship'];
+                placeRandomSet(choices, Math.max(2, Math.floor((cols * rows) / 1000)));
+                placePatternNoDraw('rabbit', cx, cy);
+            } else if (type === 'lexicon') {
+                const choices = ['tumbler', 'f_pentomino', 'small_exploder', 'queen_bee_shuttle', 'clock', 'figure_eight', 'spark_coil', 'octagon_2', 'swan', 'turtle'];
+                placeRandomSet(choices, Math.max(4, Math.floor((cols * rows) / 400)));
+            }
+            draw(); updateStats(); scenarioSelect.value = "";
+        }
+
+        function placeRandomSet(choices, count) {
+            for(let i=0; i<count; i++) {
+                const pName = choices[Math.floor(Math.random() * choices.length)];
+                const rx = Math.floor(Math.random() * (cols - 15)) + 7;
+                const ry = Math.floor(Math.random() * (rows - 15)) + 7;
+                placePatternNoDraw(pName, rx, ry);
+            }
+        }
+
+        // Listeners for Import
+        btnOpenImport.addEventListener('click', openImportModal);
+        btnCloseImport.addEventListener('click', closeImportModal);
+        btnFetchURL.addEventListener('click', fetchPatternFromURL);
+        btnProcessImport.addEventListener('click', processImport);
+        importModal.addEventListener('click', (e) => {
+            if(e.target === importModal) closeImportModal();
+        });
+
+        // Other Listeners (Existing)
+        btnStartStop.addEventListener('click', () => { if (isRunning) stopGame(); else startGame(); });
+        btnStep.addEventListener('click', () => { stopGame(); nextGen(); });
+        btnClear.addEventListener('click', () => { grid = buildGrid(); generation = 0; draw(); updateStats(); stopGame(); });
+        scenarioSelect.addEventListener('change', (e) => { if(e.target.value) applyScenario(e.target.value); });
+        btnLangDE.addEventListener('click', () => setLanguage('de'));
+        btnLangEN.addEventListener('click', () => setLanguage('en'));
+        const toggleModal = (show) => { if (show) infoModal.classList.remove('hidden'); else infoModal.classList.add('hidden'); };
+        btnInfo.addEventListener('click', () => toggleModal(true));
+        btnCloseModal.addEventListener('click', () => toggleModal(false));
+        infoModal.addEventListener('click', (e) => { if (e.target === infoModal) toggleModal(false); });
+        speedRange.addEventListener('input', (e) => { speed = parseInt(e.target.value); updateUIValues(); });
+        zoomRange.addEventListener('input', (e) => { resolution = parseInt(e.target.value); resizeCanvas(); });
+        patternSelect.addEventListener('change', (e) => {
+            currentTool = e.target.value; updateToolDisplay();
+            canvas.style.cursor = currentTool === 'free' ? "crosshair" : "copy";
+        });
+        
+        function getCellFromEvent(e) {
+            const rect = canvas.getBoundingClientRect();
+            const cx = e.touches ? e.touches[0].clientX : e.clientX;
+            const cy = e.touches ? e.touches[0].clientY : e.clientY;
+            return { col: Math.floor((cx - rect.left)/resolution), row: Math.floor((cy - rect.top)/resolution) };
+        }
+
+        function handleInteract(e) {
+            const { col, row } = getCellFromEvent(e);
+            if (col < 0 || col >= cols || row < 0 || row >= rows) return;
+            if (currentTool === 'free') {
+                if (e.type === 'mousedown' || e.type === 'touchstart') {
+                    isDrawing = true; stopGame();
+                    drawMode = grid[col][row] ? 0 : 1; grid[col][row] = drawMode;
+                    draw(); updateStats();
+                } else if ((e.type === 'mousemove' || e.type === 'touchmove') && isDrawing) {
+                    if (grid[col][row] !== drawMode) { grid[col][row] = drawMode; draw(); updateStats(); }
+                }
+            } else if (e.type === 'mousedown' || e.type === 'touchstart') {
+                placePattern(currentTool, col, row);
+            }
+        }
+        canvas.addEventListener('mousedown', handleInteract);
+        canvas.addEventListener('mousemove', handleInteract);
+        window.addEventListener('mouseup', () => isDrawing = false);
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleInteract(e); }, {passive: false});
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); handleInteract(e); }, {passive: false});
+
+        function buildGrid() { return new Array(cols).fill(null).map(() => new Array(rows).fill(0)); }
+        function resizeCanvas() {
+            const container = canvas.parentElement; canvas.width = container.clientWidth; canvas.height = container.clientHeight;
+            const oldGrid = grid; const oldCols = cols; const oldRows = rows;
+            cols = Math.ceil(canvas.width / resolution); rows = Math.ceil(canvas.height / resolution);
+            updateUIValues();
+            const newGrid = buildGrid();
+            if (oldGrid) {
+                const offsetX = Math.floor((cols - oldCols) / 2); const offsetY = Math.floor((rows - oldRows) / 2);
+                for (let i = 0; i < oldCols; i++) {
+                    for (let j = 0; j < oldRows; j++) {
+                        if (oldGrid[i] && oldGrid[i][j] === 1) {
+                            const ni = i + offsetX; const nj = j + offsetY;
+                            if (ni >= 0 && ni < cols && nj >= 0 && nj < rows) newGrid[ni][nj] = 1;
+                        }
+                    }
+                }
+            }
+            grid = newGrid; draw(); updateStats();
+        }
+        function randomizeGrid() { for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) grid[i][j] = Math.random() > 0.85 ? 1 : 0; generation = 0; draw(); updateStats(); }
+        function draw() {
+            if (resolution === 1) {
+                const imgData = ctx.createImageData(canvas.width, canvas.height); const data = imgData.data;
+                for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+                    if (i < canvas.width && j < canvas.height) {
+                        const index = (j * canvas.width + i) * 4;
+                        if (grid[i][j] === 1) { data[index]=16; data[index+1]=185; data[index+2]=129; data[index+3]=255; } 
+                        else { data[index]=15; data[index+1]=23; data[index+2]=42; data[index+3]=255; }
+                    }
+                }
+                ctx.putImageData(imgData, 0, 0); return;
+            }
+            ctx.fillStyle = COLOR_BG; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.beginPath();
+            for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) {
+                if (grid[i][j] === 1) { ctx.fillStyle = COLOR_CELL; const gap = resolution > 5 ? 1 : 0; ctx.fillRect(i * resolution, j * resolution, resolution - gap, resolution - gap); } 
+                else if (resolution > 10) { ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 0.5; ctx.strokeRect(i * resolution, j * resolution, resolution, resolution); }
+            }
+        }
+        function updateStats() { genDisplay.textContent = generation; let count = 0; if(grid) for(let i=0; i<cols; i++) for(let j=0; j<rows; j++) if(grid[i][j]) count++; liveDisplay.textContent = count; }
+        function nextGen() {
+            const nextGrid = grid.map(arr => [...arr]); 
+            for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) {
+                const state = grid[i][j]; let neighbors = 0;
+                for (let x = -1; x < 2; x++) for (let y = -1; y < 2; y++) {
+                    if (x === 0 && y === 0) continue;
+                    const col = (i + x + cols) % cols; const row = (j + y + rows) % rows;
+                    neighbors += grid[col][row];
+                }
+                if (state === 0 && neighbors === 3) nextGrid[i][j] = 1; else if (state === 1 && (neighbors < 2 || neighbors > 3)) nextGrid[i][j] = 0; else nextGrid[i][j] = state;
+            }
+            grid = nextGrid; generation++; draw(); updateStats();
+        }
+        function placePattern(name, startCol, startRow) { placePatternNoDraw(name, startCol, startRow); draw(); updateStats(); }
+        function placePatternNoDraw(name, startCol, startRow) {
+            const pattern = patterns[name]; if (!pattern) return;
+            const xs = pattern.map(p => p[0]); const ys = pattern.map(p => p[1]);
+            const w = Math.max(...xs) - Math.min(...xs); const h = Math.max(...ys) - Math.min(...ys);
+            const offsetX = startCol - Math.floor(w / 2); const offsetY = startRow - Math.floor(h / 2);
+            pattern.forEach(([x, y]) => {
+                let targetX = (x + offsetX) % cols; let targetY = (y + offsetY) % rows;
+                if (targetX < 0) targetX += cols; if (targetY < 0) targetY += rows;
+                grid[targetX][targetY] = 1;
+            });
+        }
+        function updateUIValues() {
+            const t = translations[currentLang];
+            if (valZoom) valZoom.textContent = t.valGrid.replace('{c}', cols || 0).replace('{r}', rows || 0);
+            if (valSpeed) { const delay = 210 - speed; const gps = (1000 / delay).toFixed(1); valSpeed.textContent = t.valSpeed.replace('{n}', gps); }
+        }
+        function updateToolDisplay() {
+            const t = translations[currentLang];
+            if (currentTool === 'free') toolDisplay.textContent = t.toolStart;
+            else if (currentTool === 'custom') toolDisplay.textContent = t.tools.custom;
+            else toolDisplay.textContent = t.toolPattern.replace('{pattern}', t.tools[currentTool] || currentTool);
+        }
+        function updateLanguageButtons() {
+            const active = ['bg-slate-600', 'text-emerald-400']; const inactive = ['bg-slate-800', 'text-slate-400', 'hover:bg-slate-700'];
+            const setStyle = (btn, isAct) => { if(isAct) { btn.classList.add(...active); btn.classList.remove(...inactive); } else { btn.classList.remove(...active); btn.classList.add(...inactive); } };
+            setStyle(btnLangDE, currentLang === 'de'); setStyle(btnLangEN, currentLang === 'en');
+        }
+        function renderPatternLibrary() {
+            const container = document.getElementById('patternLibraryContainer'); if (!container) return; container.innerHTML = '';
+            const t = translations[currentLang];
+            const groupDefinitions = [
+                 { key: 'still', items: ['block', 'beehive', 'loaf', 'boat', 'tub'] },
+                 { key: 'oscillator', items: ['blinker', 'toad', 'beacon', 'pulsar', 'pentadecathlon'] },
+                 { key: 'spaceship', items: ['glider', 'lwss', 'mwss', 'hwss'] },
+                 { key: 'guns', items: ['gosper', 'bi_gun'] },
+                 { key: 'methuselah', items: ['r_pentomino', 'diehard', 'acorn'] },
+                 { key: 'exotic', items: ['rabbit', 'puffer_1', 'ark', 'copperhead', 'coe_ship'] },
+                 { key: 'lexicon', items: ['tumbler', 'f_pentomino', 'small_exploder', 'queen_bee_shuttle', 'clock', 'figure_eight', 'spark_coil', 'octagon_2', 'swan', 'turtle'] }
+            ];
+            groupDefinitions.forEach(group => {
+                const details = document.createElement('details'); details.className = "group bg-slate-700/30 rounded border border-slate-600 overflow-hidden"; details.open = false; 
+                const summary = document.createElement('summary'); summary.className = "cursor-pointer p-3 font-bold text-emerald-300 hover:bg-slate-700/50 flex justify-between items-center select-none";
+                summary.innerHTML = `${t.groups[group.key]} <span class="text-slate-500 text-xs transition-transform group-open:rotate-180">▼</span>`;
+                const contentDiv = document.createElement('div'); contentDiv.className = "p-3 border-t border-slate-600 space-y-4 bg-slate-800/50";
+                group.items.forEach(patternKey => {
+                    const patternName = t.tools[patternKey]; const patternDesc = t.patternDetails[patternKey] || ""; const coords = patterns[patternKey];
+                    const itemDiv = document.createElement('div'); itemDiv.className = "flex flex-col sm:flex-row gap-4 items-start border-b border-slate-700/50 last:border-0 pb-3 last:pb-0";
+                    const preview = generatePatternPreview(coords);
+                    const textDiv = document.createElement('div'); textDiv.innerHTML = `<h5 class="font-bold text-slate-200">${patternName}</h5><p class="text-xs text-slate-400 mt-1">${patternDesc}</p>`;
+                    itemDiv.appendChild(preview); itemDiv.appendChild(textDiv); contentDiv.appendChild(itemDiv);
+                });
+                details.appendChild(summary); details.appendChild(contentDiv); container.appendChild(details);
+            });
+        }
+        function generatePatternPreview(coords) {
+            if(!coords) return document.createElement('div');
+            const xs = coords.map(p => p[0]); const ys = coords.map(p => p[1]);
+            const minX = Math.min(...xs); const maxX = Math.max(...xs); const minY = Math.min(...ys); const maxY = Math.max(...ys);
+            let width = maxX - minX + 1; let height = maxY - minY + 1; const pad = 1; width += pad*2; height += pad*2;
+            const container = document.createElement('div'); const cellSize = Math.max(3, Math.min(10, 80 / width)); 
+            container.style.display = 'grid'; container.style.gridTemplateColumns = `repeat(${width}, ${cellSize}px)`; container.style.gridTemplateRows = `repeat(${height}, ${cellSize}px)`;
+            container.style.gap = '1px'; container.className = "bg-slate-900 border border-slate-700 p-1 flex-shrink-0";
+            const gridMap = new Array(width * height).fill(0);
+            coords.forEach(([x, y]) => { const drawX = x - minX + pad; const drawY = y - minY + pad; const idx = drawY * width + drawX; gridMap[idx] = 1; });
+            gridMap.forEach(cell => { const cellDiv = document.createElement('div'); cellDiv.style.width = `${cellSize}px`; cellDiv.style.height = `${cellSize}px`; cellDiv.className = cell === 1 ? "bg-emerald-400" : "bg-slate-800/50"; container.appendChild(cellDiv); });
+            return container;
+        }
+        function attachToggleListener() {
+            const btn = document.getElementById('btnTogglePatterns'); const container = document.getElementById('patternLibraryContainer'); if(!btn || !container) return; const t = translations[currentLang];
+            btn.textContent = t.txtExpand; 
+            btn.addEventListener('click', () => {
+                const details = container.querySelectorAll('details'); let anyClosed = false; details.forEach(d => { if(!d.open) anyClosed = true; });
+                if (anyClosed) { details.forEach(d => d.open = true); btn.textContent = t.txtCollapse; } else { details.forEach(d => d.open = false); btn.textContent = t.txtExpand; }
+            });
+        }
+
+        // --- Restored Engine Functions ---
+
+        function startGame() {
+            if (isRunning) return;
+            isRunning = true;
+            const t = translations[currentLang];
+            btnStartStop.textContent = t.btnStop;
+            btnStartStop.classList.replace('bg-emerald-600', 'bg-red-600');
+            btnStartStop.classList.replace('hover:bg-emerald-500', 'hover:bg-red-500');
+            lastFrameTime = performance.now();
+            animate(performance.now());
+        }
+
+        function stopGame() {
+            isRunning = false;
+            const t = translations[currentLang];
+            cancelAnimationFrame(animationId);
+            btnStartStop.textContent = t.btnStart;
+            btnStartStop.classList.replace('bg-red-600', 'bg-emerald-600');
+            btnStartStop.classList.replace('hover:bg-red-500', 'hover:bg-emerald-500');
+        }
+
+        function animate(currentTime) {
+            if (!isRunning) return;
+            const deltaTime = currentTime - lastFrameTime;
+            const delay = 210 - speed; 
+            if (deltaTime > delay) {
+                nextGen();
+                lastFrameTime = currentTime;
+            }
+            animationId = requestAnimationFrame(animate);
+        }
+
+        function init() {
+            // Dynamic resolution based on screen width
+            if (window.innerWidth <= 1024) {
+                resolution = 10;
+            } else {
+                resolution = 20;
+            }
+            // Sync slider
+            if(zoomRange) zoomRange.value = resolution;
+
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Default start
+            randomizeGrid();
+            
+            setLanguage('en'); 
+            
+            draw();
+            updateStats();
+        }
+
+        init();
+    </script>
+</body>
+</html>

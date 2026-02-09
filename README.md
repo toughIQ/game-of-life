@@ -65,4 +65,4 @@ podman run -d -p 8080:80 game-of-life
 ## 🏆 Credits
 
 Technical Implementation: [toughIQ](https://github.com/toughIQ/game-of-life)
-Pattern data partially based on the [Life Lexicon](https://playgameoflife.com/lexicon) by Stephen Silver.
+Pattern data and knowledge base sourced from [LifeWiki](https://conwaylife.com/wiki/) and [Life Lexicon](https://playgameoflife.com/lexicon) by Stephen Silver.

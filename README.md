@@ -1,35 +1,50 @@
-# Conway's Game of Life - Web Editor
+# 🧬 Conway's Game of Life - Web Editor
 
-Dies ist eine moderne, responsive Web-Implementierung von John Conways berühmtem "Game of Life" (Spiel des Lebens). Es handelt sich um einen zellulären Automaten, der als "Zero-Player-Game" konzipiert ist – die Entwicklung hängt allein vom Startzustand ab.
+This is a modern, responsive web implementation of John Conway's famous "Game of Life". It is a cellular automaton designed as a "zero-player game" – its evolution is determined by its initial state alone.
 
-Dieses Projekt wurde als **Single-File-Applikation** entwickelt. Das bedeutet, der gesamte Code (HTML, CSS, JavaScript) befindet sich in einer einzigen Datei (`game-of-life.html`), was das Teilen und Ausführen extrem einfach macht.
+This project was developed as a **Single-File Application**. This means the entire code (HTML, CSS, JavaScript) is contained within a single file (`game-of-life.html`), making sharing and running it extremely easy.
 
-## Über das Spiel
+## 🕹️ About the Game
 
-Das Spielfeld besteht aus einem Raster von Zellen, die entweder "lebendig" oder "tot" sein können. In jedem Zeitschritt (Generation) wird der Zustand jeder Zelle basierend auf der Anzahl ihrer lebenden Nachbarn neu berechnet (Geburt, Überleben oder Tod durch Einsamkeit/Überbevölkerung).
+The game board consists of a grid of cells that can be either "alive" or "dead". In each time step (generation), the state of every cell is recalculated based on the number of its living neighbors (Birth, Survival, or Death by Isolation/Overpopulation).
 
-> **Tipp:** Eine detaillierte Anleitung zur Bedienung, Historie und eine Erklärung der verschiedenen Muster findest du direkt im Spiel über den Hilfe-Button (**?**) oben rechts.
+> **💡 Tip:** A detailed manual regarding controls, history, and explanations of various patterns can be found directly in the game via the Help button (**?**) at the top right.
 
-## Features
+## ✨ Features
 
-* **Interaktiver Editor:** Zeichnen von Zellen mit der Maus oder Touch.
-* **Muster-Bibliothek:** Große Auswahl an bekannten Objekten (Gleiter, Raumschiffe, Oszillatoren).
-* **Import-Funktion:** Lade eigene Muster (Plaintext `.cells` Format) direkt aus dem [LifeWiki](https://conwaylife.com/wiki/).
-* **Szenarien:** Vorgefertigte Setups wie "Ursuppe", "Party" oder "Exotisch".
-* **High-Performance:** Unterstützt riesige Raster (bis zu 1 Pixel Zellgröße).
-* **Mehrsprachig:** Deutsch und Englisch.
+* **🖱️ Interactive Editor:** Draw cells using mouse or touch.
+* **📚 Pattern Library:** Large selection of known objects (Gliders, Spaceships, Oscillators).
+* **📥 Import Function:** Load custom patterns (Plaintext `.cells` format) directly from [LifeWiki](https://conwaylife.com/wiki/).
+* **🎭 Scenarios:** Preset setups like "Primordial Soup", "Party", or "Exotic".
+* **🚀 High-Performance:** Supports huge grids (down to 1 pixel cell size).
+* **🌍 Multilingual:** English and German.
 
-## Nutzung
+## 🚀 Usage
 
-### Variante 1: Statisch (Empfohlen für schnellen Test)
-Da das Projekt in einer einzigen Datei läuft, musst du nichts installieren.
-1.  Lade die Datei `game-of-life.html` herunter.
-2.  Öffne sie in einem beliebigen modernen Webbrowser.
+### Option 1: Run Pre-built Container (Fastest ⚡)
+You can pull and run the ready-made container image directly from Quay.io without building anything.
 
-### Variante 2: Als Container (Docker / Podman)
-Für Server-Deployments oder isolierte Umgebungen kannst du das Spiel in einem leichten Nginx-Container betreiben. Ein passendes `Dockerfile` liegt bei.
+**Podman:**
+```bash
+podman run -d -p 8080:80 quay.io/toughiq/game-of-life:latest
+```
 
-#### Image bauen
+**Docker:**
+```bash
+docker run -d -p 8080:80 quay.io/toughiq/game-of-life:latest
+```
+
+After starting, open your browser and visit: **[http://localhost:8080](http://localhost:8080)**
+
+### Option 2: Static HTML (No Installation 📄)
+Since the project runs in a single file, you don't need to install anything.
+1.  Download the file `game-of-life.html`.
+2.  Open it in any modern web browser.
+
+### Option 3: Build Container Yourself 🛠️
+For server deployments or if you want to modify the image, you can build it using the provided `Dockerfile`.
+
+**Build Image:**
 ```bash
 # Docker
 docker build -t game-of-life .
@@ -38,9 +53,7 @@ docker build -t game-of-life .
 podman build -t game-of-life .
 ```
 
-#### Container starten
-Der Container lauscht intern auf Port 80. Wir mappen ihn hier beispielhaft auf Port 8080 des Hosts.
-
+**Run Container:**
 ```bash
 # Docker
 docker run -d -p 8080:80 game-of-life
@@ -49,11 +62,7 @@ docker run -d -p 8080:80 game-of-life
 podman run -d -p 8080:80 game-of-life
 ```
 
-#### Spielen
-Öffne deinen Browser und gehe auf:
-[http://localhost:8080](http://localhost:8080)
+## 🏆 Credits
 
-## Credits
-
-Technische Umsetzung: [toughIQ](https://github.com/toughIQ/game-of-life)
-Muster-Daten basieren teilweise auf dem [Life Lexicon](https://playgameoflife.com/lexicon) von Stephen Silver.
+Technical Implementation: [toughIQ](https://github.com/toughIQ/game-of-life)
+Pattern data partially based on the [Life Lexicon](https://playgameoflife.com/lexicon) by Stephen Silver.
